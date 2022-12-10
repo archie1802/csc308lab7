@@ -2,14 +2,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.*;
+import java.sql.Date;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.InputMismatchException;
-import java.util.Scanner;
+import java.util.*;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -86,54 +84,271 @@ public class InnReservations {
         }
     }
 
-    public void optionSelect(){
+    public void FR3() throws SQLException {
+        try {
+            Connection conn = this.createConnect();
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Please enter your reservation code: ");
+            int code = scanner.nextInt();
+            scanner.nextLine();
+            PreparedStatement pstmt0 = conn.prepareStatement("SELECT room FROM lab7_reservations where code = ?");
+            pstmt0.setInt(1, code);
+            ResultSet rs0 = pstmt0.executeQuery();
+            if (!rs0.next()) {
+                System.out.println("The reservation code entered does not exist. Please try again.");
+                FR3();
+                return;
+            }
+            Map<String, String> changes = new HashMap<>();
+            while (true) {
+                System.out.println("Select attribute to change:");
+                System.out.println("0 - No change");
+                System.out.println("1 - First name");
+                System.out.println("2 - Last name");
+                System.out.println("3 - Begin date");
+                System.out.println("4 - End date");
+                System.out.println("5 - Number of adults");
+                System.out.println("6 - Number of children");
+
+                //(Code, Room, CheckIn, Checkout, Rate, LastName, FirstName, Adults, Kids)
+                String input = scanner.next();
+                scanner.nextLine(); // flush
+                if (input.equalsIgnoreCase("0")) {
+                    break;
+                }
+                switch (input) {
+                    case "1":
+                        System.out.println("Enter new first name: ");
+                        String firstName = scanner.next();
+                        changes.put("FirstName", firstName);
+                        break;
+                    case "2":
+                        System.out.println("Enter new last name: ");
+                        String lastName = scanner.nextLine();
+                        changes.put("LastName", lastName);
+                        break;
+                    case "3":
+                        System.out.println("Enter new begin date: ");
+                        String begin = scanner.next();
+
+                        PreparedStatement pstmtA = conn.prepareStatement("SELECT room FROM lab7_reservations where code = ?");
+                        pstmtA.setInt(1, code);
+                        ResultSet rs = pstmtA.executeQuery();
+                        String room = rs.getString("room");
+
+                        PreparedStatement pstmtB = conn.prepareStatement("select * from lab7_reservations where room = ? and ? between checkin and checkout;");
+                        pstmtB.setString(1, room);
+                        pstmtB.setString(2, begin);
+                        ResultSet check = pstmtB.executeQuery();
+
+                        if (check.next()) {
+                            System.out.println("Update unsuccessful. The entered date conflicts with a current reservation.");
+                        } else {
+                            changes.put("CheckIn", begin);
+                        }
+                        break;
+                    case "4":
+                        System.out.println("Enter new end date: ");
+                        String end = scanner.next();
+
+                        PreparedStatement pstmt1A = conn.prepareStatement("SELECT room FROM lab7_reservations where code = ?");
+                        pstmt1A.setInt(1, code);
+                        ResultSet rs1 = pstmt1A.executeQuery();
+                        rs1.next();
+                        String room1 = rs1.getString("room");
+
+                        PreparedStatement pstmt1B = conn.prepareStatement("select * from lab7_reservations where room = ? and ? between checkin and checkout;");
+                        pstmt1B.setString(1, room1);
+                        pstmt1B.setString(2, end);
+                        ResultSet check1 = pstmt1B.executeQuery();
+                        if (check1.next()) {
+                            System.out.println("Update unsuccessful. The entered date conflicts with a current reservation.");
+                        } else {
+                            changes.put("CheckOut", end);
+                        }
+                        break;
+
+                    case "5":
+                        System.out.println("Enter number of adults: ");
+                        String adults = scanner.next();
+                        changes.put("Adults", adults);
+                        break;
+                    case "6":
+                        System.out.println("Enter number of kids: ");
+                        String kids = scanner.next();
+                        changes.put("Kids", kids);
+                        break;
+                }
+            }
+            if (changes.containsKey("FirstName")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set firstname=? where code = ?;")) {
+                    pstmt.setString(1, changes.get("FirstName"));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+                    //
+                    System.out.println("FirstName successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating FirstName");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+            if (changes.containsKey("LastName")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set LastName=? where code = ?;")) {
+                    pstmt.setString(1, changes.get("LastName"));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+
+                    System.out.println("LastName successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating LastName");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+            if (changes.containsKey("Adults")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set Adults=? where code = ?;")) {
+                    pstmt.setInt(1, Integer.parseInt(changes.get("Adults")));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+
+                    System.out.println("Adults successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating Adults");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+            if (changes.containsKey("Kids")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set Kids=? where code = ?;")) {
+                    pstmt.setInt(1, Integer.parseInt(changes.get("Kids")));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+
+                    System.out.println("Kids successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating Kids");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+
+            if (changes.containsKey("CheckIn")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set CheckIn=? where code = ?;")) {
+                    pstmt.setDate(1, Date.valueOf(changes.get("CheckIn")));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+
+                    System.out.println("CheckIn successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating CheckIn");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+            if (changes.containsKey("CheckOut")) {
+                try (PreparedStatement pstmt = conn.prepareStatement("update lab7_reservations set Checkout=? where code = ?;")) {
+                    pstmt.setDate(1, Date.valueOf(changes.get("CheckOut")));
+                    pstmt.setInt(2, code);
+                    pstmt.executeUpdate();
+
+                    System.out.println("Checkout successfully updated.");
+                } catch (SQLException e) {
+                    System.out.println("\nError updating CheckOut");
+                    System.out.println("\nPlease try again.\n");
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("SQLException: " + e.getMessage());
+        }
+    }
+
+    public void FR4() throws SQLException {
+        try {
+            Connection conn = this.createConnect();
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Please enter your reservation code: ");
+            int code = scanner.nextInt();
+            scanner.nextLine();
+            PreparedStatement pstmt0 = conn.prepareStatement("SELECT room FROM lab7_reservations where code = ?");
+            pstmt0.setInt(1, code);
+            ResultSet rs0 = pstmt0.executeQuery();
+            if (!rs0.next()) {
+                System.out.println("The reservation code entered does not exist. Please try again.");
+                FR4();
+                return;
+            }
+            System.out.println("Are you sure you want to cancel your reservation? (Y/N): ");
+            String confirmation = scanner.nextLine();
+            if (confirmation.equals("Y") || confirmation.equals("y")) {
+                try (PreparedStatement preparedStatement = conn.prepareStatement("DELETE FROM lab7_reservations WHERE Code = ?")) {
+                    preparedStatement.setInt(1, code);
+                    int outcome = preparedStatement.executeUpdate();
+                    if (outcome == 1) {
+                        System.out.println("Your reservation has been cancelled.");
+                    } else {
+                        System.out.println("The reservation entered either does not exist or could not be found. Please try again.\n");
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    conn.rollback();
+                }
+            } else {
+                System.out.println("Cancellation terminated.");
+            }
+        } catch (Exception e) {
+            e.getMessage();
+        }
+    }
+
+    public void optionSelect() {
         String command;
 
-        try{
+        try {
             Scanner scanner = new Scanner(System.in);
             this.printOptions();
             System.out.print("Input Command: ");
 
-            while(scanner.hasNext())
-            {
+            while (scanner.hasNext()) {
                 String option_selected = scanner.next();
                 option_selected = option_selected.replaceAll("\\s", "");
 
-                if(option_selected.equals("1")){
+                if (option_selected.equals("1")) {
                     System.out.println("\n1...");
                     this.fr1();
                     System.out.println();
                     this.printOptions();
-                }
-                else if(option_selected.equals("2")){
+                } else if (option_selected.equals("2")) {
                     System.out.println("\n2...");
                     this.fr2();
                     System.out.println();
                     this.printOptions();
-                }
-                else if(option_selected.equals("3")){
+                } else if (option_selected.equals("3")) {
                     System.out.println("\n3...");
-                    System.out.println("Please add function");
+                    this.FR3();
                     System.out.println();
                     this.printOptions();
-                }
-                else if(option_selected.equals("4")){
+                } else if (option_selected.equals("4")) {
                     System.out.println("\n4...");
-                    System.out.println("Please add function");
+                    this.FR4();
                     System.out.println();
                     this.printOptions();
-                }
-                else if(option_selected.equals("5")){
+                } else if (option_selected.equals("5")) {
                     System.out.println("\n5...");
                     System.out.println("Please add function");
                     System.out.println();
                     this.printOptions();
-                }
-                else if(option_selected.equals("M")||option_selected.equals("m")){
+                } else if (option_selected.equals("M") || option_selected.equals("m")) {
                     System.out.println("\nM...");
                     this.printOptions();
-                }
-                else if(option_selected.equals("0")){
+                } else if (option_selected.equals("0")) {
                     System.out.println("\n0...");
                     System.out.println("\nExiting...");
                     System.out.println();
@@ -143,12 +358,11 @@ public class InnReservations {
                 //printOptions();
                 System.out.println("Input Command: ");
             }
-        }
-        catch (InputMismatchException | SQLException | IOException ignored){
+        } catch (InputMismatchException | SQLException | IOException ignored) {
         }
     }
 
-    public void printOptions(){
+    public void printOptions() {
         System.out.println("\nMain Menu");
         System.out.println("[1]Rooms and Rates");
         System.out.println("[2]Book Resrvations");
@@ -193,17 +407,14 @@ public class InnReservations {
                 on r4.room = roomcode
                 order by p desc""";
 
-        try(PreparedStatement prep_stm = conn.prepareStatement(sql))
-        {
-            try(ResultSet res_set = prep_stm.executeQuery())
-            {
+        try (PreparedStatement prep_stm = conn.prepareStatement(sql)) {
+            try (ResultSet res_set = prep_stm.executeQuery()) {
 
                 //Output of Statement.
                 System.out.format("\n|%-10s |%-25s |%-10s |%-10s |%-10s |%-10s |%-15s |%-25s |%-25s |%-20s\n", "RoomId", "roomName", "beds", "bedType", "maxOcc", "basePrice", "decor", "NextAvailableCheckIn", "lastLength", "Populariy");
                 System.out.println("-------------------------------------------------------------------------------------------------------------------------------------------------------");
 
-                while(res_set.next())
-                {
+                while (res_set.next()) {
                     roomCode = res_set.getString("roomcode");
                     roomName = res_set.getString("roomName");
                     beds = res_set.getInt("beds");
@@ -215,10 +426,12 @@ public class InnReservations {
                     lastLength = res_set.getInt("laststaylength");
                     Popularity = res_set.getDouble("p");
 
-                    if(NextAvailableCheckIn == null) { NextAvailableCheckIn = "Today"; }
+                    if (NextAvailableCheckIn == null) {
+                        NextAvailableCheckIn = "Today";
+                    }
 
 
-                    System.out.format("|%-10s |%-25s |%-10s |%-10s |%-10s |%-10s |%-15s |%-25s |%-25s |%-20s\n", roomCode , roomName, beds, bedType, maxOcc, basePrice, decor, NextAvailableCheckIn, lastLength, Popularity);
+                    System.out.format("|%-10s |%-25s |%-10s |%-10s |%-10s |%-10s |%-15s |%-25s |%-25s |%-20s\n", roomCode, roomName, beds, bedType, maxOcc, basePrice, decor, NextAvailableCheckIn, lastLength, Popularity);
                 }
             }
         }
@@ -357,8 +570,6 @@ public class InnReservations {
             }
         }
         try {
-
-
             //Date checker, make sure not before current date.
             LocalDate reserv_checkInDate = LocalDate.parse(startDate);
             LocalDate reserv_checkOutDate = LocalDate.parse(endDate);
@@ -416,7 +627,7 @@ public class InnReservations {
             System.out.println("Total Cost: " + totalCost);
             System.out.print("Confirm booking? Confirm/No: ");
             String input = cnsl.readLine();
-            if(input.equalsIgnoreCase("No")){
+            if (input.equalsIgnoreCase("No")) {
                 return;
             }
             try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO lab7_reservations (CODE, Room, CheckIn, CheckOut, Rate, LastName, FirstName, Adults, Kids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")) {
@@ -438,7 +649,7 @@ public class InnReservations {
         }
     }
 
-    private Connection createConnect() {
+    private Connection createConnect() throws SQLException {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             System.out.println("MySQL JDBC Driver loaded");
@@ -447,15 +658,11 @@ public class InnReservations {
             System.exit(-1);
         }
 
-        // Step 1: Establish connection to RDBMS
-        try {
-            Connection conn = DriverManager.getConnection(System.getenv("HP_JDBC_URL"),
-                    System.getenv("HP_JDBC_USER"),
-                    System.getenv("HP_JDBC_PW"));
-            return conn;
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        return null;
+        Connection conn = DriverManager.getConnection(System.getenv("HP_JDBC_URL"),
+                System.getenv("HP_JDBC_USER"),
+                System.getenv("HP_JDBC_PW"));
+        return conn;
     }
+
 }
+
