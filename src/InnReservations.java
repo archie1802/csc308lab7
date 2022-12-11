@@ -270,6 +270,34 @@ public class InnReservations {
         }
     }
 
+
+    public void FR5() throws SQLException {
+        try {
+            System.out.println("FR5");
+            Connection conn = this.createConnect();
+            Scanner scanner = new Scanner(System.in);
+            PreparedStatement pstmt1 = conn.prepareStatement("SELECT Room, sum(DATEDIFF(checkout,CheckIn)*rate) as sum ,MONTH(checkout) as M from lab7_reservations where YEAR(checkout) = YEAR(CURRENT_DATE) group by Room, MONTH(checkout) order by room, MONTH(checkout)");
+            ResultSet rs0 = pstmt1.executeQuery();
+            System.out.println("Room  January   February   March   April   May   June   July   August   September   October   November   December   Total");
+            Map<String, revenueDisplay> roomList = new HashMap<>();
+            roomList.put("AOB",new revenueDisplay("AOB"));
+            while(rs0.next()) {
+                if (roomList.get(rs0.getString("Room")) != null)
+                    roomList.get(rs0.getString("Room")).addRev(rs0.getInt("M")-1,rs0.getFloat("sum"));
+                else{
+                    roomList.put(rs0.getString("Room"),new revenueDisplay(rs0.getString("Room")));
+                    roomList.get(rs0.getString("Room")).addRev(rs0.getInt("M")-1,rs0.getFloat("sum"));
+                }
+            }
+            for (String key: roomList.keySet()) {
+                System.out.println(key+" "+roomList.get(key).monthRevenue);
+            }
+        } catch (Exception e) {
+            e.getMessage();
+        }
+    }
+
+
     public void FR4() throws SQLException {
         try {
             Connection conn = this.createConnect();
@@ -342,7 +370,8 @@ public class InnReservations {
                     this.printOptions();
                 } else if (option_selected.equals("5")) {
                     System.out.println("\n5...");
-                    System.out.println("Please add function");
+                    //System.out.println("Please add function");
+                    this.FR5();
                     System.out.println();
                     this.printOptions();
                 } else if (option_selected.equals("M") || option_selected.equals("m")) {
@@ -663,6 +692,19 @@ public class InnReservations {
                 System.getenv("HP_JDBC_PW"));
         return conn;
     }
+    public class revenueDisplay {
+        String roomCode = "";
+        ArrayList<Float> monthRevenue = new ArrayList<Float>();
+        revenueDisplay(String Code){
+            roomCode = Code;
+            for (int i = 0; i < 13; i++) {
+                monthRevenue.add(0.0F);
+            }
+        }
+        void addRev(int month, float rev ){
+            monthRevenue.set(month,rev);
+            monthRevenue.set(12,monthRevenue.get(12)+rev);
+        }
+    }
 
 }
-
